@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Needle Art & Perforation Template Generator</title>
+  <meta name="description" content="Convert any image into a printable, millimeter-accurate physical needle-art and perforation hole template for stencil transfer and string art.">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <i data-lucide="circle-dot" style="width:20px;height:20px;color:#ffffff"></i>
+        </div>
+        <div class="brand-title">NEEDLE ART</div>
+        <div class="brand-tag">PRO TEMPLATE GENERATOR</div>
+      </div>
+
+      <div class="header-actions">
+        <input type="file" id="file-upload-input" accept="image/*" style="display:none">
+        <button class="btn" id="btn-upload-image">
+          <i data-lucide="upload" style="width:16px;height:16px"></i>
+          Upload Image
+        </button>
+
+        <div style="width:1px;height:24px;background:var(--border-color);margin:0 4px"></div>
+
+        <button class="btn" id="btn-export-svg">
+          <i data-lucide="code-2" style="width:16px;height:16px"></i>
+          Export SVG
+        </button>
+        <button class="btn btn-primary" id="btn-export-pdf">
+          <i data-lucide="file-down" style="width:16px;height:16px"></i>
+          Export PDF
+        </button>
+        <button class="btn btn-accent" id="btn-print">
+          <i data-lucide="printer" style="width:16px;height:16px"></i>
+          Print (100%)
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="app-layout">
+      <!-- Sidebar Controls Drawer -->
+      <aside class="app-sidebar" id="sidebar-container"></aside>
+
+      <!-- Main Workspace Canvas -->
+      <main class="workspace">
+        <div class="workspace-toolbar" id="toolbar-container"></div>
+        <div class="canvas-viewport">
+          <canvas id="main-canvas"></canvas>
+        </div>
+        <footer class="analytics-bar" id="analytics-container"></footer>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
