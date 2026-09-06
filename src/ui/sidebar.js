@@ -197,12 +197,17 @@ export function setupSidebar(containerElement, appState, onSettingChange, onLoad
         </button>
       </div>
 
-      <div class="preset-strip" id="region-list-strip" style="margin-bottom:12px;">
+      <div class="preset-strip" id="region-list-strip" style="margin-bottom:10px;">
         <div class="preset-chip ${!appState.activeRegionId ? 'active' : ''}" data-reg-id="">Global Image</div>
         ${appState.regions.map(r => `
           <div class="preset-chip ${appState.activeRegionId === r.id ? 'active' : ''}" data-reg-id="${r.id}">${r.name}</div>
         `).join('')}
       </div>
+
+      <button class="btn" id="btn-toggle-region-overlay" style="width:100%;justify-content:center;margin-bottom:12px;font-size:0.75rem;padding:6px;">
+        <i data-lucide="${appState.showRegionOverlay ? 'eye-off' : 'eye'}" style="width:14px;height:14px"></i>
+        ${appState.showRegionOverlay ? 'Hide Selection Boundary (Preview Dots)' : 'Show Selection Boundary'}
+      </button>
 
       ${appState.getActiveRegion() ? `
         <div style="background:rgba(255,255,255,0.04);padding:12px;border-radius:8px;border:1px solid var(--border-color)">
@@ -346,6 +351,15 @@ export function setupSidebar(containerElement, appState, onSettingChange, onLoad
     drawBoxBtn.addEventListener('click', () => {
       appState.activeTool = 'region_box';
       setupSidebar(containerElement, appState, onSettingChange, onLoadSample);
+    });
+  }
+
+  const toggleOverlayBtn = containerElement.querySelector('#btn-toggle-region-overlay');
+  if (toggleOverlayBtn) {
+    toggleOverlayBtn.addEventListener('click', () => {
+      appState.showRegionOverlay = !appState.showRegionOverlay;
+      setupSidebar(containerElement, appState, onSettingChange, onLoadSample);
+      onSettingChange();
     });
   }
 

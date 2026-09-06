@@ -55,6 +55,7 @@ export class AppState {
     this.showGrid = true;
     this.showRuler = true;
     this.showRegistrationMarks = true;
+    this.showRegionOverlay = true; // Toggle selection boundary overlay preview
 
     // Source image metadata & ImageData
     this.sourceImage = null;
