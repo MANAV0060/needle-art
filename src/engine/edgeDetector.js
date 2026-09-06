@@ -1,7 +1,7 @@
-import { isPointInRegion } from './regionUtils.js';
+import { getRegionWeight } from './regionUtils.js';
 
 /**
- * Sobel gradient magnitude and direction calculation with polygon and box ROI support.
+ * Sobel gradient magnitude and direction calculation with smooth polygon and box ROI threshold blending.
  */
 
 export function computeSobelEdges(grayMap, width, height, threshold = 0.25, regions = []) {
@@ -36,14 +36,13 @@ export function computeSobelEdges(grayMap, width, height, threshold = 0.25, regi
       edgeMagnitude[idx] = Math.min(1.0, mag);
       edgeDirection[idx] = angle;
 
-      // Check if pixel belongs to a region with custom local edge threshold
+      // Smooth threshold blending across region perimeters to prevent artificial border edges
       let effectiveThresh = threshold;
       for (const reg of regions) {
-        if (isPointInRegion(xNorm, yNorm, reg)) {
-          if (reg.edgeThreshold !== undefined) {
-            effectiveThresh = reg.edgeThreshold / 100.0;
-          }
-          break;
+        const w = getRegionWeight(xNorm, yNorm, reg);
+        if (w > 0 && reg.edgeThreshold !== undefined) {
+          const regThresh = reg.edgeThreshold / 100.0;
+          effectiveThresh = effectiveThresh * (1 - w) + regThresh * w;
         }
       }
 

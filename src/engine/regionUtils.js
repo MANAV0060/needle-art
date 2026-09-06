@@ -1,6 +1,6 @@
 /**
  * Region Utilities for Box and Polygon Selection ROI (Region of Interest) processing.
- * Supports exact point-in-polygon ray casting and mm <-> normalized coordinate mapping.
+ * Supports exact point-in-polygon ray casting, distance feathering, and mm <-> normalized coordinate mapping.
  */
 
 /**
@@ -22,6 +22,33 @@ export function pointInPolygon(px, py, polygon) {
     if (intersect) inside = !inside;
   }
   return inside;
+}
+
+/**
+ * Calculates shortest Euclidean distance from (px, py) to any edge of a polygon.
+ */
+export function distanceToPolygonBoundary(px, py, polygon) {
+  if (!polygon || polygon.length < 3) return Infinity;
+  let minDistance = Infinity;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const p1 = polygon[i];
+    const p2 = polygon[j];
+    const x1 = p1.xNorm !== undefined ? p1.xNorm : p1.x;
+    const y1 = p1.yNorm !== undefined ? p1.yNorm : p1.y;
+    const x2 = p2.xNorm !== undefined ? p2.xNorm : p2.x;
+    const y2 = p2.yNorm !== undefined ? p2.yNorm : p2.y;
+
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+    let t = lenSq === 0 ? 0 : ((px - x1) * dx + (py - y1) * dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+    const projX = x1 + t * dx;
+    const projY = y1 + t * dy;
+    const dist = Math.hypot(px - projX, py - projY);
+    if (dist < minDistance) minDistance = dist;
+  }
+  return minDistance;
 }
 
 /**
@@ -47,7 +74,6 @@ export function isPointInRegion(xNorm, yNorm, reg, marginMm = 0, drawW = 1, draw
   if (isPolygon) {
     const pts = reg.pointsNorm || reg.points;
     if (pts && pts.length >= 3) {
-      // Normalize points if passed in mm space
       const normalizedPts = pts.map(p => {
         if (p.xNorm !== undefined && p.yNorm !== undefined) return p;
         return {
@@ -57,11 +83,57 @@ export function isPointInRegion(xNorm, yNorm, reg, marginMm = 0, drawW = 1, draw
       });
       return pointInPolygon(xNorm, yNorm, normalizedPts);
     }
-    // DO NOT fall back to bounding box if polygon points are missing or invalid
     return false;
   }
 
   return true;
+}
+
+/**
+ * Computes smooth distance-feathered region weight W in [0.0, 1.0].
+ * Eliminates artificial straight lines or square box edges of dots along selection borders.
+ */
+export function getRegionWeight(xNorm, yNorm, reg, marginMm = 0, drawW = 1, drawH = 1, featherNorm = 0.035) {
+  if (!isPointInRegion(xNorm, yNorm, reg, marginMm, drawW, drawH)) {
+    return 0.0;
+  }
+
+  const isPolygon = reg.type === 'polygon' || (reg.points && reg.points.length >= 3) || (reg.pointsNorm && reg.pointsNorm.length >= 3);
+
+  let distToEdge = 0;
+  if (isPolygon) {
+    const pts = reg.pointsNorm || reg.points;
+    const normalizedPts = pts.map(p => {
+      if (p.xNorm !== undefined && p.yNorm !== undefined) return p;
+      return {
+        xNorm: (p.x - marginMm) / drawW,
+        yNorm: (p.y - marginMm) / drawH
+      };
+    });
+    distToEdge = distanceToPolygonBoundary(xNorm, yNorm, normalizedPts);
+  } else {
+    // Box region distance to 4 edges
+    const minX = reg.xNorm !== undefined ? reg.xNorm : (reg.x - marginMm) / drawW;
+    const minY = reg.yNorm !== undefined ? reg.yNorm : (reg.y - marginMm) / drawH;
+    const wN = reg.wNorm !== undefined ? reg.wNorm : reg.width / drawW;
+    const hN = reg.hNorm !== undefined ? reg.hNorm : reg.height / drawH;
+    const maxX = minX + wN;
+    const maxY = minY + hN;
+
+    distToEdge = Math.min(
+      xNorm - minX,
+      maxX - xNorm,
+      yNorm - minY,
+      maxY - yNorm
+    );
+  }
+
+  if (distToEdge <= 0) return 0.0;
+  if (distToEdge >= featherNorm) return 1.0;
+
+  // Smooth Hermite curve for zero-discontinuity blending across boundary
+  const t = distToEdge / featherNorm;
+  return t * t * (3 - 2 * t);
 }
 
 /**

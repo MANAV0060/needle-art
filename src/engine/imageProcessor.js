@@ -1,8 +1,8 @@
-import { isPointInRegion } from './regionUtils.js';
+import { getRegionWeight } from './regionUtils.js';
 
 /**
  * Image processing utilities: grayscale, contrast, brightness, blur, and local contrast
- * with Polygon & Box Region of Interest (ROI) support.
+ * with Polygon & Box Region of Interest (ROI) distance-feathered blending.
  */
 
 export function processImageData(pixels, width, height, options = {}) {
@@ -23,7 +23,7 @@ export function processImageData(pixels, width, height, options = {}) {
     ? pixels
     : new Uint8Array(pixels);
 
-  // 1. Grayscale + Brightness/Contrast + Gamma Adjustment + Region Blending
+  // 1. Grayscale + Brightness/Contrast + Gamma Adjustment + Smooth Region Feathering
   const globalGamma = options.gamma || 1.2;
   const globalContrast = contrast;
   const globalDetail = detailStrength || 1.6;
@@ -50,18 +50,19 @@ export function processImageData(pixels, width, height, options = {}) {
       let effectiveDetail = globalDetail;
       let effectiveBlur = globalBlur;
 
+      // Smooth distance-feathered blending across all active ROI regions
       for (const reg of regions) {
-        if (isPointInRegion(xNorm, yNorm, reg)) {
+        const w = getRegionWeight(xNorm, yNorm, reg);
+        if (w > 0) {
           const regContrast = reg.contrast !== undefined ? reg.contrast : 0;
           const regGamma = reg.gamma !== undefined ? reg.gamma : globalGamma;
           const regDetail = reg.detailStrength !== undefined ? reg.detailStrength : globalDetail;
           const regBlur = reg.blur !== undefined ? reg.blur : globalBlur;
 
-          effectiveContrast += regContrast;
-          effectiveGamma = regGamma;
-          effectiveDetail = regDetail;
-          effectiveBlur = regBlur;
-          break; // Use active/first matching region
+          effectiveContrast += regContrast * w;
+          effectiveGamma = effectiveGamma * (1 - w) + regGamma * w;
+          effectiveDetail = effectiveDetail * (1 - w) + regDetail * w;
+          effectiveBlur = effectiveBlur * (1 - w) + regBlur * w;
         }
       }
 

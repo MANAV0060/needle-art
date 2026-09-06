@@ -1,10 +1,10 @@
 import { SpatialHash } from './spatialHash.js';
-import { isPointInRegion } from './regionUtils.js';
+import { getRegionWeight } from './regionUtils.js';
 
 /**
  * Traces 8-connected binary edge pixels into polyline contours,
  * parameterizes by arc-length, and samples evenly spaced physical points
- * with polygon & box ROI support.
+ * with smooth polygon & box ROI weight blending.
  */
 
 export function generateOutlinePoints(binaryEdges, width, height, options = {}) {
@@ -127,11 +127,12 @@ export function generateOutlinePoints(binaryEdges, width, height, options = {}) 
       const normX = (px - marginMm) / drawableWidthMm;
       const normY = (py - marginMm) / drawableHeightMm;
       const regions = options.regions || [];
+
       let localScale = 1.0;
       for (const reg of regions) {
-        if (isPointInRegion(normX, normY, reg)) {
-          if (reg.dotSizeFactor !== undefined) localScale = reg.dotSizeFactor;
-          break;
+        const w = getRegionWeight(normX, normY, reg, marginMm, drawableWidthMm, drawableHeightMm);
+        if (w > 0 && reg.dotSizeFactor !== undefined) {
+          localScale = localScale * (1 - w) + reg.dotSizeFactor * w;
         }
       }
 

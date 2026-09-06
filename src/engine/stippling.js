@@ -1,11 +1,11 @@
 import { SpatialHash } from './spatialHash.js';
-import { isPointInRegion } from './regionUtils.js';
+import { getRegionWeight } from './regionUtils.js';
 import { createPRNG } from './prng.js';
 
 /**
  * Adaptive Variable-Density Poisson Disk / Blue Noise Stippling Engine.
- * Operates in physical millimeter space with polygon & box ROI support
- * and deterministic seeded random generation to prevent point distortion.
+ * Operates in physical millimeter space with polygon & box ROI support,
+ * distance-feathered smooth parameter blending, and PRNG sampling.
  */
 export function generateShadingPoints(importanceMap, width, height, options = {}) {
   const {
@@ -55,25 +55,43 @@ export function generateShadingPoints(importanceMap, width, height, options = {}
 
   const regions = options.regions || [];
 
-  // Helper to get local region overrides for position (mmX, mmY) with Polygon & Box support
-  const getRegionAt = (mmX, mmY) => {
-    const normX = (mmX - marginMm) / drawableWidthMm;
-    const normY = (mmY - marginMm) / drawableHeightMm;
-    for (const reg of regions) {
-      if (isPointInRegion(normX, normY, reg)) {
-        return reg;
-      }
-    }
-    return null;
-  };
-
-  // Helper to calculate target spacing based on local importance and region overrides
+  // Helper to calculate target spacing with smooth region weight blending
   const getSpacing = (mmX, mmY) => {
     const imp = getImportance(mmX, mmY);
-    const reg = getRegionAt(mmX, mmY);
-    const localMinSpacing = (reg && reg.minSpacingMm !== undefined) ? reg.minSpacingMm : minSpacingMm;
+    const normX = (mmX - marginMm) / drawableWidthMm;
+    const normY = (mmY - marginMm) / drawableHeightMm;
+
+    let localMinSpacing = minSpacingMm;
+    for (const reg of regions) {
+      const w = getRegionWeight(normX, normY, reg, marginMm, drawableWidthMm, drawableHeightMm);
+      if (w > 0 && reg.minSpacingMm !== undefined) {
+        localMinSpacing = localMinSpacing * (1 - w) + reg.minSpacingMm * w;
+      }
+    }
     // Darker/Important areas get smaller spacing (higher density)
     return maxSpacingMm - imp * (maxSpacingMm - localMinSpacing);
+  };
+
+  const paperBridgeMm = options.paperBridgeMm || 0.4;
+  const markerDiameterMm = options.markerDiameterMm || 0.8;
+  const baseRadius = markerDiameterMm / 2.0;
+  const variableRadius = options.variableRadius !== false; // default true for artistic depth
+
+  // Helper to calculate dot radius with smooth region weight blending
+  const getRadius = (imp, mmX, mmY) => {
+    const normX = (mmX - marginMm) / drawableWidthMm;
+    const normY = (mmY - marginMm) / drawableHeightMm;
+
+    let scaleFactor = 1.0;
+    for (const reg of regions) {
+      const w = getRegionWeight(normX, normY, reg, marginMm, drawableWidthMm, drawableHeightMm);
+      if (w > 0 && reg.dotSizeFactor !== undefined) {
+        scaleFactor = scaleFactor * (1 - w) + reg.dotSizeFactor * w;
+      }
+    }
+    if (!variableRadius) return Number((baseRadius * scaleFactor).toFixed(2));
+    // Darker/Important areas get larger punch holes for dramatic depth
+    return Number((baseRadius * (0.55 + imp * 0.95) * scaleFactor).toFixed(2));
   };
 
   // Seed candidate points deterministically across grid
@@ -92,19 +110,6 @@ export function generateShadingPoints(importanceMap, width, height, options = {}
 
   // Sort by importance descending so darkest/most detailed areas get seeded first
   seedCandidates.sort((a, b) => b.imp - a.imp);
-
-  const paperBridgeMm = options.paperBridgeMm || 0.4;
-  const markerDiameterMm = options.markerDiameterMm || 0.8;
-  const baseRadius = markerDiameterMm / 2.0;
-  const variableRadius = options.variableRadius !== false; // default true for artistic depth
-
-  const getRadius = (imp, mmX, mmY) => {
-    const reg = getRegionAt(mmX, mmY);
-    const scaleFactor = (reg && reg.dotSizeFactor !== undefined) ? reg.dotSizeFactor : 1.0;
-    if (!variableRadius) return Number((baseRadius * scaleFactor).toFixed(2));
-    // Darker/Important areas get larger punch holes for dramatic depth
-    return Number((baseRadius * (0.55 + imp * 0.95) * scaleFactor).toFixed(2));
-  };
 
   // Helper to ensure physical hole circles never overlap or breach paperBridgeMm gap
   const hasPhysicalOverlap = (x, y, candRadius) => {
