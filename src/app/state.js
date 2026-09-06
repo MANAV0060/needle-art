@@ -8,7 +8,8 @@ export const PAPER_SIZES = {
   'A3': { name: 'A3', widthMm: 297, heightMm: 420 },
   'Letter': { name: 'US Letter', widthMm: 215.9, heightMm: 279.4 },
   'Legal': { name: 'US Legal', widthMm: 215.9, heightMm: 355.6 },
-  'Square': { name: 'Square (200mm)', widthMm: 200, heightMm: 200 }
+  'Square': { name: 'Square (200mm)', widthMm: 200, heightMm: 200 },
+  'Custom': { name: 'Custom Dimension (mm)', widthMm: 200, heightMm: 200 }
 };
 
 export class AppState {
@@ -16,8 +17,8 @@ export class AppState {
     this.paperKey = 'A4';
     this.orientation = 'portrait'; // 'portrait' | 'landscape'
     this.marginMm = 10;
-    this.customWidthMm = 210;
-    this.customHeightMm = 297;
+    this.customWidthMm = 200;
+    this.customHeightMm = 200;
 
     // Physical hole settings
     this.settings = {
@@ -90,10 +91,18 @@ export class AppState {
   }
 
   getPageDimensions() {
-    let dims = PAPER_SIZES[this.paperKey] || {
-      widthMm: this.customWidthMm,
-      heightMm: this.customHeightMm
-    };
+    let dims;
+    if (this.paperKey === 'Custom') {
+      dims = {
+        widthMm: Math.max(30, this.customWidthMm || 200),
+        heightMm: Math.max(30, this.customHeightMm || 200)
+      };
+    } else {
+      dims = PAPER_SIZES[this.paperKey] || {
+        widthMm: 210,
+        heightMm: 297
+      };
+    }
 
     if (this.orientation === 'landscape') {
       return {

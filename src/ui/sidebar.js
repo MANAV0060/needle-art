@@ -54,10 +54,39 @@ export function setupSidebar(containerElement, appState, onSettingChange, onLoad
         <div class="control-label">Paper Size</div>
         <select id="select-paper-size">
           ${Object.keys(PAPER_SIZES).map(k => `
-            <option value="${k}" ${appState.paperKey === k ? 'selected' : ''}>${PAPER_SIZES[k].name} (${PAPER_SIZES[k].widthMm}×${PAPER_SIZES[k].heightMm}mm)</option>
+            <option value="${k}" ${appState.paperKey === k ? 'selected' : ''}>${PAPER_SIZES[k].name} ${k !== 'Custom' ? `(${PAPER_SIZES[k].widthMm}×${PAPER_SIZES[k].heightMm}mm)` : ''}</option>
           `).join('')}
         </select>
       </div>
+
+      ${appState.paperKey === 'Custom' ? `
+        <div style="background:rgba(255,255,255,0.04);padding:10px;border-radius:8px;border:1px solid var(--border-color);margin-bottom:12px;">
+          <div style="font-size:0.75rem;font-weight:700;color:var(--accent-cyan);margin-bottom:8px;">Custom Page Dimensions</div>
+          
+          <div class="control-group">
+            <div class="control-label">
+              <span>Width (mm)</span>
+              <span class="control-val" id="val-custom-width">${appState.customWidthMm} mm</span>
+            </div>
+            <input type="range" id="slider-custom-width" min="50" max="800" value="${appState.customWidthMm}" step="5">
+          </div>
+
+          <div class="control-group">
+            <div class="control-label">
+              <span>Height (mm)</span>
+              <span class="control-val" id="val-custom-height">${appState.customHeightMm} mm</span>
+            </div>
+            <input type="range" id="slider-custom-height" min="50" max="800" value="${appState.customHeightMm}" step="5">
+          </div>
+
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+            <div class="preset-chip" id="btn-custom-100x100">100×100mm</div>
+            <div class="preset-chip" id="btn-custom-150x150">150×150mm</div>
+            <div class="preset-chip" id="btn-custom-300x300">300×300mm</div>
+            <div class="preset-chip" id="btn-custom-postcard">105×148mm</div>
+          </div>
+        </div>
+      ` : ''}
 
       <div class="control-group">
         <div class="control-label">Orientation</div>
@@ -313,7 +342,40 @@ export function setupSidebar(containerElement, appState, onSettingChange, onLoad
   });
 
   // Attach Select & Slider Listeners
-  bindSelect('select-paper-size', val => { appState.paperKey = val; onSettingChange(); });
+  bindSelect('select-paper-size', val => {
+    appState.paperKey = val;
+    setupSidebar(containerElement, appState, onSettingChange, onLoadSample);
+    onSettingChange();
+  });
+
+  if (appState.paperKey === 'Custom') {
+    bindSlider('slider-custom-width', 'val-custom-width', ' mm', val => {
+      appState.customWidthMm = val;
+      onSettingChange();
+    });
+    bindSlider('slider-custom-height', 'val-custom-height', ' mm', val => {
+      appState.customHeightMm = val;
+      onSettingChange();
+    });
+
+    const bindCustomChip = (id, w, h) => {
+      const chip = containerElement.querySelector(`#${id}`);
+      if (chip) {
+        chip.addEventListener('click', () => {
+          appState.customWidthMm = w;
+          appState.customHeightMm = h;
+          setupSidebar(containerElement, appState, onSettingChange, onLoadSample);
+          onSettingChange();
+        });
+      }
+    };
+
+    bindCustomChip('btn-custom-100x100', 100, 100);
+    bindCustomChip('btn-custom-150x150', 150, 150);
+    bindCustomChip('btn-custom-300x300', 300, 300);
+    bindCustomChip('btn-custom-postcard', 105, 148);
+  }
+
   bindSelect('select-orientation', val => { appState.orientation = val; onSettingChange(); });
 
   bindSlider('slider-margin', 'val-margin', ' mm', val => { appState.marginMm = val; onSettingChange(); });
