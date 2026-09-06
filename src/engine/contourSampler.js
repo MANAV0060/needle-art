@@ -1,8 +1,10 @@
 import { SpatialHash } from './spatialHash.js';
+import { isPointInRegion } from './regionUtils.js';
 
 /**
  * Traces 8-connected binary edge pixels into polyline contours,
- * parameterizes by arc-length, and samples evenly spaced physical points.
+ * parameterizes by arc-length, and samples evenly spaced physical points
+ * with polygon & box ROI support.
  */
 
 export function generateOutlinePoints(binaryEdges, width, height, options = {}) {
@@ -127,13 +129,8 @@ export function generateOutlinePoints(binaryEdges, width, height, options = {}) 
       const regions = options.regions || [];
       let localScale = 1.0;
       for (const reg of regions) {
-        if (
-          normX >= reg.xNorm &&
-          normX <= reg.xNorm + reg.wNorm &&
-          normY >= reg.yNorm &&
-          normY <= reg.yNorm + reg.hNorm
-        ) {
-          if (reg.dotSizeFactor) localScale = reg.dotSizeFactor;
+        if (isPointInRegion(normX, normY, reg)) {
+          if (reg.dotSizeFactor !== undefined) localScale = reg.dotSizeFactor;
           break;
         }
       }

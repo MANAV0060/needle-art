@@ -165,17 +165,31 @@ export class AppController {
     const drawW = page.widthMm - 2 * margin;
     const drawH = page.heightMm - 2 * margin;
 
-    const normalizedRegions = this.state.regions.map(r => ({
-      id: r.id,
-      xNorm: Math.max(0, (r.x - margin) / drawW),
-      yNorm: Math.max(0, (r.y - margin) / drawH),
-      wNorm: r.width / drawW,
-      hNorm: r.height / drawH,
-      contrast: r.contrast || 0,
-      gamma: r.gamma || 1.2,
-      detailStrength: r.detailStrength || 1.6,
-      densityBoost: r.densityBoost || 1.0
-    }));
+    const normalizedRegions = this.state.regions.map(r => {
+      const normObj = {
+        id: r.id,
+        name: r.name,
+        type: r.type || 'box',
+        xNorm: Math.max(0, (r.x - margin) / drawW),
+        yNorm: Math.max(0, (r.y - margin) / drawH),
+        wNorm: r.width / drawW,
+        hNorm: r.height / drawH,
+        contrast: r.contrast !== undefined ? r.contrast : 0,
+        gamma: r.gamma !== undefined ? r.gamma : 1.2,
+        detailStrength: r.detailStrength !== undefined ? r.detailStrength : 1.6,
+        edgeThreshold: r.edgeThreshold !== undefined ? r.edgeThreshold : 20,
+        blur: r.blur !== undefined ? r.blur : 1,
+        minSpacingMm: r.minSpacingMm !== undefined ? r.minSpacingMm : 2.5,
+        dotSizeFactor: r.dotSizeFactor !== undefined ? r.dotSizeFactor : 1.0
+      };
+      if (r.points && r.points.length > 0) {
+        normObj.pointsNorm = r.points.map(p => ({
+          xNorm: (p.x - margin) / drawW,
+          yNorm: (p.y - margin) / drawH
+        }));
+      }
+      return normObj;
+    });
 
     this.worker.postMessage({
       type: 'GENERATE',

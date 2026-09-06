@@ -186,10 +186,16 @@ export function setupSidebar(containerElement, appState, onSettingChange, onLoad
         <i data-lucide="crop" style="width:14px;height:14px"></i> Targeted Area Adjustments
       </div>
 
-      <button class="btn ${appState.activeTool === 'region' ? 'btn-primary' : ''}" id="btn-draw-region" style="width:100%;justify-content:center;margin-bottom:12px;">
-        <i data-lucide="square" style="width:16px;height:16px"></i>
-        ${appState.activeTool === 'region' ? 'Drag Box on Canvas...' : '+ Select / Draw Area'}
-      </button>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button class="btn ${appState.activeTool === 'region_polygon' || appState.activeTool === 'region' ? 'btn-primary' : ''}" id="btn-draw-polygon" style="flex:1;justify-content:center;font-size:0.75rem;padding:8px 4px;">
+          <i data-lucide="pentagon" style="width:14px;height:14px"></i>
+          ${appState.activeTool === 'region_polygon' || appState.activeTool === 'region' ? 'Click Canvas for Polygon...' : '+ Polygon Lasso'}
+        </button>
+        <button class="btn ${appState.activeTool === 'region_box' ? 'btn-primary' : ''}" id="btn-draw-box" style="flex:1;justify-content:center;font-size:0.75rem;padding:8px 4px;">
+          <i data-lucide="square" style="width:14px;height:14px"></i>
+          ${appState.activeTool === 'region_box' ? 'Drag Box on Canvas...' : '+ Rectangle Box'}
+        </button>
+      </div>
 
       <div class="preset-strip" id="region-list-strip" style="margin-bottom:12px;">
         <div class="preset-chip ${!appState.activeRegionId ? 'active' : ''}" data-reg-id="">Global Image</div>
@@ -200,7 +206,12 @@ export function setupSidebar(containerElement, appState, onSettingChange, onLoad
 
       ${appState.getActiveRegion() ? `
         <div style="background:rgba(255,255,255,0.04);padding:12px;border-radius:8px;border:1px solid var(--border-color)">
-          <div style="font-size:0.75rem;font-weight:700;color:var(--accent-cyan);margin-bottom:10px;">${appState.getActiveRegion().name} Tuning</div>
+          <div style="font-size:0.75rem;font-weight:700;color:var(--accent-cyan);margin-bottom:10px;display:flex;align-items:center;justify-space-between;">
+            <span>${appState.getActiveRegion().name} Tuning</span>
+            <span style="font-size:0.65rem;background:rgba(56,189,248,0.15);padding:2px 6px;border-radius:4px;color:#38bdf8">
+              ${appState.getActiveRegion().type === 'polygon' ? `Polygon (${appState.getActiveRegion().points ? appState.getActiveRegion().points.length : 0} pts)` : 'Rectangle Box'}
+            </span>
+          </div>
           
           <div class="control-group">
             <div class="control-label">
@@ -321,11 +332,19 @@ export function setupSidebar(containerElement, appState, onSettingChange, onLoad
   bindSlider('slider-edge-sensitivity', 'val-edge-sensitivity', '', val => { appState.settings.imagePrep.edgeThreshold = val; onSettingChange(); });
   bindSlider('slider-blur', 'val-blur', '', val => { appState.settings.imagePrep.blur = val; onSettingChange(); });
 
-  // Region Drawing Button
-  const drawRegionBtn = containerElement.querySelector('#btn-draw-region');
-  if (drawRegionBtn) {
-    drawRegionBtn.addEventListener('click', () => {
-      appState.activeTool = 'region';
+  // Region Drawing Buttons
+  const drawPolyBtn = containerElement.querySelector('#btn-draw-polygon');
+  if (drawPolyBtn) {
+    drawPolyBtn.addEventListener('click', () => {
+      appState.activeTool = 'region_polygon';
+      setupSidebar(containerElement, appState, onSettingChange, onLoadSample);
+    });
+  }
+
+  const drawBoxBtn = containerElement.querySelector('#btn-draw-box');
+  if (drawBoxBtn) {
+    drawBoxBtn.addEventListener('click', () => {
+      appState.activeTool = 'region_box';
       setupSidebar(containerElement, appState, onSettingChange, onLoadSample);
     });
   }

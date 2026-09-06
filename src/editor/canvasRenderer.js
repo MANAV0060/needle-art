@@ -189,22 +189,73 @@ export class CanvasRenderer {
       }
     }
 
-    // 6. Draw Local ROI Selected Regions
+    // 6. Draw Local ROI Selected Regions (Box & Polygon)
     for (const reg of this.state.regions) {
       const isActive = reg.id === this.state.activeRegionId;
       ctx.strokeStyle = isActive ? '#38bdf8' : 'rgba(56, 189, 248, 0.45)';
-      ctx.lineWidth = isActive ? 0.5 : 0.25;
-      ctx.setLineDash([3, 3]);
-      ctx.strokeRect(reg.x, reg.y, reg.width, reg.height);
-      ctx.setLineDash([]);
+      ctx.lineWidth = isActive ? 0.6 : 0.3;
+      ctx.fillStyle = isActive ? 'rgba(56, 189, 248, 0.08)' : 'rgba(56, 189, 248, 0.03)';
+
+      if (reg.type === 'polygon' && reg.points && reg.points.length >= 3) {
+        ctx.beginPath();
+        ctx.moveTo(reg.points[0].x, reg.points[0].y);
+        for (let i = 1; i < reg.points.length; i++) {
+          ctx.lineTo(reg.points[i].x, reg.points[i].y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Render polygon vertex handles
+        if (isActive) {
+          for (const p of reg.points) {
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 0.8, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      } else {
+        // Standard Rectangle Box Region
+        ctx.fillRect(reg.x, reg.y, reg.width, reg.height);
+        ctx.setLineDash([3, 3]);
+        ctx.strokeRect(reg.x, reg.y, reg.width, reg.height);
+        ctx.setLineDash([]);
+      }
 
       // Region Label Badge
       const labelW = Math.max(22, (reg.name || 'Local Area').length * 2.2);
+      const labelX = reg.type === 'polygon' && reg.points ? reg.points[0].x : reg.x;
+      const labelY = reg.type === 'polygon' && reg.points ? reg.points[0].y : reg.y;
+
       ctx.fillStyle = isActive ? '#0284c7' : 'rgba(15, 23, 42, 0.85)';
-      ctx.fillRect(reg.x, Math.max(0, reg.y - 4.5), labelW, 4.5);
+      ctx.fillRect(labelX, Math.max(0, labelY - 4.5), labelW, 4.5);
       ctx.fillStyle = '#ffffff';
       ctx.font = '2.2px sans-serif';
-      ctx.fillText(reg.name || 'Local Area', reg.x + 1.2, Math.max(3, reg.y - 1.2));
+      ctx.fillText(reg.name || 'Local Area', labelX + 1.2, Math.max(3, labelY - 1.2));
+    }
+
+    // 7. Draw Live Polygon Drawing Preview
+    if (this.drawingPolygonPoints && this.drawingPolygonPoints.length > 0) {
+      ctx.strokeStyle = '#f43f5e';
+      ctx.fillStyle = 'rgba(244, 63, 94, 0.12)';
+      ctx.lineWidth = 0.5;
+
+      ctx.beginPath();
+      ctx.moveTo(this.drawingPolygonPoints[0].x, this.drawingPolygonPoints[0].y);
+      for (let i = 1; i < this.drawingPolygonPoints.length; i++) {
+        ctx.lineTo(this.drawingPolygonPoints[i].x, this.drawingPolygonPoints[i].y);
+      }
+      ctx.stroke();
+
+      for (const p of this.drawingPolygonPoints) {
+        ctx.fillStyle = '#f43f5e';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 0.9, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     ctx.restore(); // Restore camera pan/zoom

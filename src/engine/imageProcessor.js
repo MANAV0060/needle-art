@@ -1,5 +1,8 @@
+import { isPointInRegion } from './regionUtils.js';
+
 /**
- * Image processing utilities: grayscale, contrast, brightness, blur, and local contrast.
+ * Image processing utilities: grayscale, contrast, brightness, blur, and local contrast
+ * with Polygon & Box Region of Interest (ROI) support.
  */
 
 export function processImageData(pixels, width, height, options = {}) {
@@ -20,7 +23,7 @@ export function processImageData(pixels, width, height, options = {}) {
     ? pixels
     : new Uint8Array(pixels);
 
-  // 1. Grayscale + Brightness/Contrast + Gamma Adjustment + Smooth Feathered Region Blending
+  // 1. Grayscale + Brightness/Contrast + Gamma Adjustment + Region Blending
   const globalGamma = options.gamma || 1.2;
   const globalContrast = contrast;
   const globalDetail = detailStrength || 1.6;
@@ -42,54 +45,23 @@ export function processImageData(pixels, width, height, options = {}) {
       const g = pixelData[idx + 1] || 0;
       const b = pixelData[idx + 2] || 0;
 
-      // Calculate smooth weight & parameter blend across all active ROI regions
       let effectiveContrast = globalContrast;
       let effectiveGamma = globalGamma;
       let effectiveDetail = globalDetail;
       let effectiveBlur = globalBlur;
 
       for (const reg of regions) {
-        const xMin = reg.xNorm;
-        const xMax = reg.xNorm + reg.wNorm;
-        const yMin = reg.yNorm;
-        const yMax = reg.yNorm + reg.hNorm;
+        if (isPointInRegion(xNorm, yNorm, reg)) {
+          const regContrast = reg.contrast !== undefined ? reg.contrast : 0;
+          const regGamma = reg.gamma !== undefined ? reg.gamma : globalGamma;
+          const regDetail = reg.detailStrength !== undefined ? reg.detailStrength : globalDetail;
+          const regBlur = reg.blur !== undefined ? reg.blur : globalBlur;
 
-        // Feather margin
-        const featherX = Math.max(0.02, reg.wNorm * 0.15);
-        const featherY = Math.max(0.02, reg.hNorm * 0.15);
-
-        if (
-          xNorm >= xMin - featherX &&
-          xNorm <= xMax + featherX &&
-          yNorm >= yMin - featherY &&
-          yNorm <= yMax + featherY
-        ) {
-          let wX = 1.0;
-          if (xNorm < xMin) wX = (xNorm - (xMin - featherX)) / featherX;
-          else if (xNorm > xMax) wX = ((xMax + featherX) - xNorm) / featherX;
-
-          let wY = 1.0;
-          if (yNorm < yMin) wY = (yNorm - (yMin - featherY)) / featherY;
-          else if (yNorm > yMax) wY = ((yMax + featherY) - yNorm) / featherY;
-
-          wX = Math.min(1.0, Math.max(0.0, wX));
-          wY = Math.min(1.0, Math.max(0.0, wY));
-
-          const smoothX = wX * wX * (3 - 2 * wX);
-          const smoothY = wY * wY * (3 - 2 * wY);
-          const weight = smoothX * smoothY;
-
-          if (weight > 0) {
-            const regContrast = reg.contrast !== undefined ? reg.contrast : 0;
-            const regGamma = reg.gamma !== undefined ? reg.gamma : globalGamma;
-            const regDetail = reg.detailStrength !== undefined ? reg.detailStrength : globalDetail;
-            const regBlur = reg.blur !== undefined ? reg.blur : globalBlur;
-
-            effectiveContrast += regContrast * weight;
-            effectiveGamma = effectiveGamma * (1 - weight) + regGamma * weight;
-            effectiveDetail = effectiveDetail * (1 - weight) + regDetail * weight;
-            effectiveBlur = effectiveBlur * (1 - weight) + regBlur * weight;
-          }
+          effectiveContrast += regContrast;
+          effectiveGamma = regGamma;
+          effectiveDetail = regDetail;
+          effectiveBlur = regBlur;
+          break; // Use active/first matching region
         }
       }
 
@@ -145,7 +117,6 @@ export function processImageData(pixels, width, height, options = {}) {
 function applySeparableBlur(input, output, width, height, radius) {
   const temp = new Float32Array(width * height);
   const r = Math.round(radius);
-  const kernelSize = r * 2 + 1;
 
   // Horizontal pass
   for (let y = 0; y < height; y++) {

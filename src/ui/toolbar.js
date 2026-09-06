@@ -18,10 +18,16 @@ export function setupToolbar(containerElement, appState, history, canvasRenderer
       </button>
     </div>
 
-    <!-- Center: Interactive Editing Tools -->
+    <!-- Center: Interactive Editing & Selection Tools -->
     <div class="tool-group">
-      <button class="icon-btn ${appState.activeTool === 'select' ? 'active' : ''}" id="tool-select" title="Select / Drag Dot">
+      <button class="icon-btn ${appState.activeTool === 'select' ? 'active' : ''}" id="tool-select" title="Select / Drag Dot or Region">
         <i data-lucide="mouse-pointer" style="width:16px;height:16px"></i>
+      </button>
+      <button class="icon-btn ${appState.activeTool === 'region_polygon' || appState.activeTool === 'region' ? 'active' : ''}" id="tool-region-polygon" title="Polygon Lasso Selection Tool (Click points or drag lasso around faces/hair)">
+        <i data-lucide="pentagon" style="width:16px;height:16px"></i>
+      </button>
+      <button class="icon-btn ${appState.activeTool === 'region_box' ? 'active' : ''}" id="tool-region-box" title="Rectangle Box Selection Tool">
+        <i data-lucide="square" style="width:16px;height:16px"></i>
       </button>
       <button class="icon-btn ${appState.activeTool === 'add' ? 'active' : ''}" id="tool-add" title="Add Single Hole">
         <i data-lucide="plus-circle" style="width:16px;height:16px"></i>
@@ -31,9 +37,6 @@ export function setupToolbar(containerElement, appState, history, canvasRenderer
       </button>
       <button class="icon-btn ${appState.activeTool === 'brush' ? 'active' : ''}" id="tool-brush" title="Brush Erase Holes">
         <i data-lucide="eraser" style="width:16px;height:16px"></i>
-      </button>
-      <button class="icon-btn ${appState.activeTool === 'region' ? 'active' : ''}" id="tool-region" title="Draw Local Region Box for Local Contrast & Gamma Tuning">
-        <i data-lucide="crop" style="width:16px;height:16px"></i>
       </button>
       <button class="icon-btn ${appState.activeTool === 'pan' ? 'active' : ''}" id="tool-pan" title="Pan Workspace">
         <i data-lucide="hand" style="width:16px;height:16px"></i>
@@ -71,10 +74,11 @@ export function setupToolbar(containerElement, appState, history, canvasRenderer
 
   // Bind Tool buttons
   bindToolBtn('tool-select', 'select');
+  bindToolBtn('tool-region-polygon', 'region_polygon');
+  bindToolBtn('tool-region-box', 'region_box');
   bindToolBtn('tool-add', 'add');
   bindToolBtn('tool-delete', 'delete');
   bindToolBtn('tool-brush', 'brush');
-  bindToolBtn('tool-region', 'region');
   bindToolBtn('tool-pan', 'pan');
 
   // Undo / Redo

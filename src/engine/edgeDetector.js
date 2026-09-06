@@ -1,5 +1,7 @@
+import { isPointInRegion } from './regionUtils.js';
+
 /**
- * Sobel gradient magnitude and direction calculation.
+ * Sobel gradient magnitude and direction calculation with polygon and box ROI support.
  */
 
 export function computeSobelEdges(grayMap, width, height, threshold = 0.25, regions = []) {
@@ -37,12 +39,7 @@ export function computeSobelEdges(grayMap, width, height, threshold = 0.25, regi
       // Check if pixel belongs to a region with custom local edge threshold
       let effectiveThresh = threshold;
       for (const reg of regions) {
-        if (
-          xNorm >= reg.xNorm &&
-          xNorm <= reg.xNorm + reg.wNorm &&
-          yNorm >= reg.yNorm &&
-          yNorm <= reg.yNorm + reg.hNorm
-        ) {
+        if (isPointInRegion(xNorm, yNorm, reg)) {
           if (reg.edgeThreshold !== undefined) {
             effectiveThresh = reg.edgeThreshold / 100.0;
           }
@@ -63,7 +60,6 @@ export function computeSobelEdges(grayMap, width, height, threshold = 0.25, regi
   }
 
   if (count < totalPixels * 0.005) {
-    // Find 92nd percentile edge magnitude
     const mags = Array.from(edgeMagnitude).filter(m => m > 0.02).sort((a, b) => b - a);
     if (mags.length > 0) {
       const adaptiveCutoff = mags[Math.floor(mags.length * 0.25)] || 0.1;

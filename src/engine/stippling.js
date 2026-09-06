@@ -1,8 +1,11 @@
 import { SpatialHash } from './spatialHash.js';
+import { isPointInRegion } from './regionUtils.js';
+import { createPRNG } from './prng.js';
 
 /**
  * Adaptive Variable-Density Poisson Disk / Blue Noise Stippling Engine.
- * Operates in physical millimeter space.
+ * Operates in physical millimeter space with polygon & box ROI support
+ * and deterministic seeded random generation to prevent point distortion.
  */
 export function generateShadingPoints(importanceMap, width, height, options = {}) {
   const {
@@ -14,8 +17,11 @@ export function generateShadingPoints(importanceMap, width, height, options = {}
     exclusionPoints = [],      // Existing outline points for clearance mask in Hybrid mode
     clearanceFactor = 1.25,    // Exclusion radius multiplier
     maxPointsLimit = 10000,    // Target max hole budget safeguard
-    kCandidates = 30           // Poisson candidate attempts per point
+    kCandidates = 30,          // Poisson candidate attempts per point
+    seed = 12345678
   } = options;
+
+  const prng = createPRNG(seed);
 
   const drawableWidthMm = pageWidthMm - 2 * marginMm;
   const drawableHeightMm = pageHeightMm - 2 * marginMm;
@@ -49,17 +55,12 @@ export function generateShadingPoints(importanceMap, width, height, options = {}
 
   const regions = options.regions || [];
 
-  // Helper to get local region overrides for position (mmX, mmY)
+  // Helper to get local region overrides for position (mmX, mmY) with Polygon & Box support
   const getRegionAt = (mmX, mmY) => {
     const normX = (mmX - marginMm) / drawableWidthMm;
     const normY = (mmY - marginMm) / drawableHeightMm;
     for (const reg of regions) {
-      if (
-        normX >= reg.xNorm &&
-        normX <= reg.xNorm + reg.wNorm &&
-        normY >= reg.yNorm &&
-        normY <= reg.yNorm + reg.hNorm
-      ) {
+      if (isPointInRegion(normX, normY, reg)) {
         return reg;
       }
     }
@@ -70,7 +71,7 @@ export function generateShadingPoints(importanceMap, width, height, options = {}
   const getSpacing = (mmX, mmY) => {
     const imp = getImportance(mmX, mmY);
     const reg = getRegionAt(mmX, mmY);
-    const localMinSpacing = (reg && reg.minSpacingMm) ? reg.minSpacingMm : minSpacingMm;
+    const localMinSpacing = (reg && reg.minSpacingMm !== undefined) ? reg.minSpacingMm : minSpacingMm;
     // Darker/Important areas get smaller spacing (higher density)
     return maxSpacingMm - imp * (maxSpacingMm - localMinSpacing);
   };
@@ -99,7 +100,7 @@ export function generateShadingPoints(importanceMap, width, height, options = {}
 
   const getRadius = (imp, mmX, mmY) => {
     const reg = getRegionAt(mmX, mmY);
-    const scaleFactor = (reg && reg.dotSizeFactor) ? reg.dotSizeFactor : 1.0;
+    const scaleFactor = (reg && reg.dotSizeFactor !== undefined) ? reg.dotSizeFactor : 1.0;
     if (!variableRadius) return Number((baseRadius * scaleFactor).toFixed(2));
     // Darker/Important areas get larger punch holes for dramatic depth
     return Number((baseRadius * (0.55 + imp * 0.95) * scaleFactor).toFixed(2));
@@ -142,15 +143,15 @@ export function generateShadingPoints(importanceMap, width, height, options = {}
 
   // Poisson-disk sampling loop around active points
   while (activeList.length > 0 && points.length < maxPointsLimit) {
-    const randomIndex = Math.floor(Math.random() * activeList.length);
+    const randomIndex = Math.floor(prng() * activeList.length);
     const parentPoint = activeList[randomIndex];
     const rParent = getSpacing(parentPoint.x, parentPoint.y);
 
     let foundValid = false;
 
     for (let candidateIdx = 0; candidateIdx < kCandidates; candidateIdx++) {
-      const angle = Math.random() * Math.PI * 2;
-      const radius = rParent * (1.0 + Math.random());
+      const angle = prng() * Math.PI * 2;
+      const radius = rParent * (1.0 + prng());
 
       const candX = parentPoint.x + Math.cos(angle) * radius;
       const candY = parentPoint.y + Math.sin(angle) * radius;
